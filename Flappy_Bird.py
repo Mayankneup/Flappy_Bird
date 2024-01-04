@@ -18,7 +18,9 @@ PIPE_GAP = 425
 UPPER_LIMIT = 50
 LOWER_LIMIT = 250
 Jump_Factor = 40
-your_score = 0
+SCORE_POSITION = (GAME_WIDTH/2, 20)
+END_SCORE_POSITION = (522, (GAME_HEIGHT / 1.98))
+
 
 # Display
 screen = pygame.display.set_mode((GAME_WIDTH, GAME_HEIGHT))
@@ -27,7 +29,6 @@ clock = pygame.time.Clock()
 sky = pygame.image.load('Image/BG.png')
 sky_END = pygame.image.load('Image/BG_END.png')
 logo = pygame.image.load('Image/FB text.png')
-play_button = pygame.image.load('Image/Playbotton.png')
 pipe_down = pygame.image.load('Image/pipe-green-2.png')
 pipe_up = pygame.image.load('Image/pipe-green-top-3.png')
 bird_up = pygame.image.load('Image/Fup.png')
@@ -35,6 +36,7 @@ bird_mid = pygame.image.load('Image/Fmid.png')
 bird_down = pygame.image.load('Image/Fdown.png')
 gameover = pygame.image.load('Image/gameover.png')
 current_bird = bird_mid
+number = 0
 
 game_is_active = True
 game_over = False
@@ -43,7 +45,7 @@ show_welcome_screen = True
 
 active_threads = []
 bird_position = [GAME_WIDTH // 3, GAME_HEIGHT // 2]
-create_random_pipe_position = lambda: -random.randint(UPPER_LIMIT, LOWER_LIMIT)  # NOQA
+create_random_pipe_position = lambda: -random.randint(UPPER_LIMIT, LOWER_LIMIT)
 active_pipes = [
     [i, create_random_pipe_position()]
     for i in range(GAME_WIDTH // 2, GAME_WIDTH + GAME_WIDTH // 2, 300)
@@ -64,17 +66,35 @@ def handle_pipe():
         pipe_up_rect = pipe_up.get_rect(topleft=active_pipes[i])
         screen.blit(pipe_down, [active_pipes[i][0], active_pipes[i][1] + PIPE_GAP])
         pipe_down_rect = pipe_down.get_rect(topleft=[active_pipes[i][0], active_pipes[i][1] + PIPE_GAP])
-
         if not game_over:
             active_pipes[i][0] -= OBJECT_MOMENT_SPEED
             if active_pipes[i][0] <= RESET_POSITION_END:
+                scooring()
                 active_pipes[i][0] = RESET_POSITION_START
                 active_pipes[i][1] = create_random_pipe_position()
         if ((bird_rect.colliderect(pipe_up_rect))) or (bird_rect.colliderect(pipe_down_rect)):
             game_is_active = False
             end_screen()
 
+def display_score():
+    global number
+    white = (255, 255, 255)  # Change color to red
+    myFont = pygame.font.SysFont("impact", 30)
+    rendered_number = myFont.render(str(number), 1, white)
+    screen.blit(rendered_number, SCORE_POSITION)
+def end_display_score():
+    global number
+    white = (255, 255, 255)
+    myFont = pygame.font.SysFont("Times New Roman", 50)
+    rendered_number = myFont.render(str(number), 1, white)
+    screen.blit(rendered_number, END_SCORE_POSITION)
 
+def scooring():
+    global number
+    for i in range(len(active_pipes)):
+        if not game_over:
+            if active_pipes[i][0] <= RESET_POSITION_END and active_pipes[i][0] >= RESET_POSITION_END - OBJECT_MOMENT_SPEED:
+                number += 1
 def end_screen():
     global game_over, active_pipes, bird_movement_allowed, game_is_active, show_welcome_screen
     active_pipes = [[i, create_random_pipe_position()]
@@ -83,9 +103,14 @@ def end_screen():
     game_over = True
     bird_movement_allowed = False
     while True:
+        myFont = pygame.font.SysFont("Times New Roman", 50)
+        white = (255, 255, 255)
+        randletterLabel = myFont.render("Your score was", 1 , white)
+
         screen.blit(sky_END, (0, 0))
         screen.blit(gameover, ((GAME_WIDTH / 3.5), (GAME_HEIGHT / 6)))
-        screen.blit(play_button, (((GAME_WIDTH/2.3)),(GAME_HEIGHT/2)))
+        screen.blit(randletterLabel, ((GAME_WIDTH / 3.8), (GAME_HEIGHT / 2)))
+
         for key_event in pygame.event.get():
             if key_event.type == pygame.KEYUP and key_event.key == pygame.K_SPACE:
                 game_is_active = True
@@ -93,6 +118,8 @@ def end_screen():
                 game_over = False
                 show_welcome_screen = False
                 game()
+        scooring()
+        end_display_score()
         pygame.display.update()
 
 
@@ -112,8 +139,7 @@ def welcome_screen():
     display_welcome_screen = True
 
     while display_welcome_screen:
-        screen.blit(logo, ((GAME_WIDTH/3.2), (GAME_HEIGHT / 6)))
-        screen.blit(play_button, (((GAME_WIDTH/2.3)),(GAME_HEIGHT/2)))
+        screen.blit(logo, ((GAME_WIDTH/2.5), (GAME_HEIGHT / 4)))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -134,12 +160,14 @@ def run_in_thread(function):
 
 def handle_bird():
     global bird_rect
-    if bird_movement_allowed:  # only update bird position if bird movement is allowed
+    if bird_movement_allowed:
         screen.blit(current_bird, bird_position)
         bird_rect = current_bird.get_rect(topleft=bird_position)
 
 def game():
     global game_over, show_welcome_screen
+    scooring()
+
     screen.blit(sky, (0, 0))
     run_in_thread(animate_bird)
 
@@ -163,9 +191,11 @@ def game():
 
         if not bird_flew and bird_movement_allowed:
             bird_position[1] += BIRD_MOMENT_SPEED
-
         handle_bird()
         handle_pipe()
+
+        scooring()
+        display_score()
         pygame.display.update()
         clock.tick(FRAME_RATE)
 
