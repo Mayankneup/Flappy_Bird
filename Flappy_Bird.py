@@ -34,6 +34,7 @@ pipe_up = pygame.image.load('Image/pipe-green-top-3.png')
 bird_up = pygame.image.load('Image/Fup.png')
 bird_mid = pygame.image.load('Image/Fmid.png')
 bird_down = pygame.image.load('Image/Fdown.png')
+bird_fall = pygame.image.load('Image/FB_Fall.png')
 
 # Game state
 current_bird = bird_mid
@@ -89,14 +90,23 @@ def increment_score():
 
 def end_screen():
     global game_over, bird_movement_allowed, game_is_active, show_welcome_screen, score
-
     game_over = True
     bird_movement_allowed = False
 
-    while True:
-        screen.blit(sky, (0, 0))
+    animate_bird_fall()
 
-        # Overlay
+    while True:
+        # Draw background
+        screen.blit(sky, (0, 0))
+        # Draw pipes
+        for pipe in active_pipes:
+            # Upper pipe
+            screen.blit(pipe_up, pipe)
+            # Lower pipe
+            lower_pipe_position = [pipe[0], pipe[1] + PIPE_GAP]
+            screen.blit(pipe_down, lower_pipe_position)
+
+        # Semi-transparent overlay
         draw_rect_alpha(screen, (0, 0, 0, 180), (150, 100, 500, 300))
 
         # Render texts
@@ -119,6 +129,7 @@ def end_screen():
                 pygame.quit()
                 exit()
             if event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
+                # Reset game state
                 score = 0
                 game_is_active = True
                 bird_movement_allowed = True
@@ -131,6 +142,7 @@ def end_screen():
                 game()
 
         pygame.display.update()
+        clock.tick(FRAME_RATE)
 
 
 def animate_bird():
@@ -142,6 +154,42 @@ def animate_bird():
         time.sleep(BIRD_ANIMATION_CHANGE_TIME)
         current_bird = bird_down
         time.sleep(BIRD_ANIMATION_CHANGE_TIME)
+
+def animate_bird_fall():
+    global current_bird
+
+    bird_y = bird_position[1]
+    velocity = -10
+    gravity = 1
+
+    # Mid-air frame
+    current_bird = bird_mid
+    screen.blit(sky, (0, 0))
+    for pipe in active_pipes:
+        screen.blit(pipe_up, pipe)
+        screen.blit(pipe_down, (pipe[0], pipe[1] + PIPE_GAP))
+    screen.blit(current_bird, (bird_position[0], bird_y))
+    pygame.display.update()
+    time.sleep(BIRD_ANIMATION_CHANGE_TIME)
+
+    # Start falling
+    current_bird = bird_fall
+
+    while bird_y < GAME_HEIGHT:
+        bird_y += velocity
+        velocity += gravity
+
+        # Draw background and pipes
+        screen.blit(sky, (0, 0))
+        for pipe in active_pipes:
+            screen.blit(pipe_up, pipe)
+            screen.blit(pipe_down, (pipe[0], pipe[1] + PIPE_GAP))
+
+        # Draw falling bird
+        screen.blit(current_bird, (bird_position[0], bird_y))
+        pygame.display.update()
+        clock.tick(FRAME_RATE)
+
 
 
 def welcome_screen():
