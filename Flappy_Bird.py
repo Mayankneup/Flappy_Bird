@@ -99,28 +99,6 @@ def increment_score():
             pipe["scored"] = True
 
 
-def update_bird_frame():
-    global current_bird
-
-    if game_over or not bird_movement_allowed:
-        return
-
-    if last_flap_time is None:
-        current_bird = bird_mid
-        return
-
-    elapsed = time.time() - last_flap_time
-
-    if elapsed < 0.12:
-        current_bird = bird_up
-    elif elapsed < 0.24:
-        current_bird = bird_mid
-    elif elapsed < 0.36:
-        current_bird = bird_down
-    else:
-        current_bird = bird_mid
-
-
 def trigger_game_over():
     global game_is_active, game_over, bird_movement_allowed
     if game_over:
@@ -180,6 +158,17 @@ def reset_game_state():
     bird_movement_allowed = True
     game_is_active = True
     last_flap_time = None
+
+
+def reset_game_state():
+    global active_pipes, bird_movement_allowed, bird_position, current_bird, score, game_over, game_is_active
+    active_pipes = create_initial_pipes()
+    bird_position[1] = GAME_HEIGHT // 2
+    current_bird = bird_mid
+    score = 0
+    game_over = False
+    bird_movement_allowed = True
+    game_is_active = True
 
 def animate_bird_fall():
     global current_bird
@@ -258,7 +247,7 @@ def detect_collisions():
 
 
 def game():
-    global game_over, show_welcome_screen, bird_movement_allowed, game_is_active, last_flap_time
+    global game_over, show_welcome_screen, bird_movement_allowed, active_threads, game_is_active
 
     while True:
         if show_welcome_screen:
@@ -269,7 +258,7 @@ def game():
         bird_movement_allowed = True
         game_is_active = True
         game_over = False
-        last_flap_time = None
+        run_in_thread(animate_bird)
 
         while game_is_active:
             screen.blit(sky, (0, 0))
@@ -281,8 +270,6 @@ def game():
                     exit()
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE and not game_over:
                     bird_position[1] -= BIRD_MOVEMENT_SPEED * JUMP_FACTOR
-                    last_flap_time = time.time()
-                    current_bird = bird_up
                     bird_flew = True
                 if event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
                     bird_flew = False
@@ -299,6 +286,9 @@ def game():
             pygame.display.update()
             clock.tick(FRAME_RATE)
 
+        for thread in active_threads:
+            thread.join()
+        active_threads.clear()
         end_screen()
 
 
