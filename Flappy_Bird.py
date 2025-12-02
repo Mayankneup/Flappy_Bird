@@ -1,6 +1,5 @@
 import random
 import time
-from threading import Thread
 import pygame
 
 # Initialize Pygame
@@ -43,7 +42,7 @@ game_is_active = True
 game_over = False
 bird_movement_allowed = True
 show_welcome_screen = True
-active_threads = []
+last_flap_time = None
 
 # Bird and pipe positions
 bird_position = [GAME_WIDTH // 3, GAME_HEIGHT // 2]
@@ -149,15 +148,16 @@ def end_screen():
         clock.tick(FRAME_RATE)
 
 
-def animate_bird():
-    global current_bird
-    while game_is_active:
-        current_bird = bird_up
-        time.sleep(BIRD_ANIMATION_CHANGE_TIME)
-        current_bird = bird_mid
-        time.sleep(BIRD_ANIMATION_CHANGE_TIME)
-        current_bird = bird_down
-        time.sleep(BIRD_ANIMATION_CHANGE_TIME)
+def reset_game_state():
+    global active_pipes, bird_movement_allowed, bird_position, current_bird, score, game_over, game_is_active, last_flap_time
+    active_pipes = create_initial_pipes()
+    bird_position[1] = GAME_HEIGHT // 2
+    current_bird = bird_mid
+    score = 0
+    game_over = False
+    bird_movement_allowed = True
+    game_is_active = True
+    last_flap_time = None
 
 
 def reset_game_state():
@@ -222,16 +222,10 @@ def welcome_screen():
         pygame.display.update()
         clock.tick(FRAME_RATE)
 
-
-def run_in_thread(function):
-    thread = Thread(target=function, daemon=True)
-    active_threads.append(thread)
-    thread.start()
-
-
 def handle_bird():
     global bird_rect
     if bird_movement_allowed:
+        update_bird_frame()
         screen.blit(current_bird, bird_position)
         bird_rect = current_bird.get_rect(topleft=bird_position)
 
