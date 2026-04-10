@@ -1,6 +1,7 @@
 import pygame
 import random
 import sys
+import asyncio  # Add this
 
 SCREEN_WIDTH = 288
 SCREEN_HEIGHT = 512
@@ -63,7 +64,7 @@ class Pipe:
         screen.blit(self.pipe_surface, self.bottom_rect)
         screen.blit(self.top_pipe_surface, self.top_rect)
 
-def main():
+async def main(): 
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     clock = pygame.time.Clock()
@@ -171,6 +172,7 @@ def main():
 
         pygame.display.update()
         clock.tick(FPS)
+        await asyncio.sleep(0)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
