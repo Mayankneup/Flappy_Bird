@@ -3,6 +3,7 @@ import random
 import sys
 import asyncio
 
+# --- Configuration ---
 SCREEN_WIDTH = 288
 SCREEN_HEIGHT = 512
 GRAVITY = 0.25
@@ -60,8 +61,11 @@ async def main():
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     clock = pygame.time.Clock()
     
+    # Fonts
     score_font = pygame.font.SysFont("Impact", 32)
     restart_font = pygame.font.SysFont("Arial", 16, bold=True)
+
+    # --- Pre-load Assets ---
     try:
         bg_surface = pygame.image.load('assets/background-day.png').convert()
         base_surface = pygame.image.load('assets/base.png').convert()
@@ -80,7 +84,7 @@ async def main():
         tp_surf = pygame.image.load('assets/pipe-green-top.png').convert_alpha()
     except Exception as e:
         print(f"Asset loading error: {e}")
-        # Fallback to avoid crash in cas asset is missing
+        # Fallback to avoid crash if some assets are missing on web
         pygame.quit()
         return
 
@@ -98,6 +102,7 @@ async def main():
     BIRDFLAP = pygame.USEREVENT + 1
     pygame.time.set_timer(BIRDFLAP, 100)
 
+    # --- MAIN GAME LOOP ---
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -125,10 +130,10 @@ async def main():
             if event.type == BIRDFLAP and game_active:
                 bird.animate()
 
-        # Background
+        # 1. Background
         screen.blit(bg_surface, (0, 0))
 
-        # Game Logic Updates
+        # 2. Game Logic Updates
         if game_active:
             # Floor movement
             base_x -= PIPE_SPEED
@@ -150,7 +155,7 @@ async def main():
                     score += 1
                     pipe.scored = True
             
-            # Boundary Check
+            # Boundary Check (Floor is at 450px)
             if bird.rect.top <= 0 or bird.rect.bottom >= 450:
                 game_active = False
                 game_over = True
@@ -158,7 +163,7 @@ async def main():
             # Remove off-screen pipes
             pipes = [p for p in pipes if p.x > -50]
 
-        # Drawing Objects
+        # 3. Drawing Objects
         for pipe in pipes:
             pipe.draw(screen)
         
@@ -166,7 +171,7 @@ async def main():
         screen.blit(base_surface, (base_x + SCREEN_WIDTH, 450))
         bird.draw(screen)
 
-        # UI Layer
+        # 4. UI Layer
         if not game_active and not game_over:
             screen.blit(msg_surface, (SCREEN_WIDTH // 2 - msg_surface.get_width() // 2, 50))
 
@@ -175,10 +180,13 @@ async def main():
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 150))
             screen.blit(overlay, (0, 0))
+            
             # Game Over visuals
             screen.blit(over_surface, (SCREEN_WIDTH // 2 - over_surface.get_width() // 2, 180))
+            
             score_surf = score_font.render(f"SCORE: {score}", True, (255, 255, 255))
             screen.blit(score_surf, (SCREEN_WIDTH // 2 - score_surf.get_width() // 2, 240))
+            
             restart_surf = restart_font.render("PRESS SPACE TO RESTART", True, (255, 255, 255))
             screen.blit(restart_surf, (SCREEN_WIDTH // 2 - restart_surf.get_width() // 2, 320))
         else:
@@ -186,6 +194,7 @@ async def main():
             score_txt = score_font.render(str(score), True, (255, 255, 255))
             screen.blit(score_txt, (SCREEN_WIDTH // 2 - score_txt.get_width() // 2, 50))
 
+        # --- FINAL WEB STEP ---
         pygame.display.update()
         clock.tick(FPS)
         await asyncio.sleep(0) # Required for Pygbag
