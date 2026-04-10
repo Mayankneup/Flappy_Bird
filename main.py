@@ -1,7 +1,7 @@
 import pygame
 import random
 import sys
-import asyncio  # Add this
+import asyncio
 
 SCREEN_WIDTH = 288
 SCREEN_HEIGHT = 512
@@ -12,17 +12,8 @@ PIPE_GAP = 100
 FPS = 60
 
 class Bird:
-    def __init__(self):
-        try:
-            self.frames = [
-                pygame.image.load('assets/Fdown.png').convert_alpha(),
-                pygame.image.load('assets/Fmid.png').convert_alpha(),
-                pygame.image.load('assets/Fup.png').convert_alpha()
-            ]
-        except:
-            surf = pygame.Surface((34, 24)); surf.fill((255, 200, 0))
-            self.frames = [surf, surf, surf]
-            
+    def __init__(self, frames):
+        self.frames = frames
         self.frame_index = 0
         self.image = self.frames[self.frame_index]
         self.rect = self.image.get_rect(center=(50, SCREEN_HEIGHT // 2))
@@ -36,7 +27,7 @@ class Bird:
     def apply_gravity(self):
         self.velocity += GRAVITY
         self.rect.centery += self.velocity
-        # Adding tilt when falling or jumping
+        # Tilt bird based on velocity
         self.rotated_image = pygame.transform.rotate(self.image, -self.velocity * 3)
 
     def jump(self):
@@ -46,9 +37,9 @@ class Bird:
         screen.blit(self.rotated_image, self.rect)
 
 class Pipe:
-    def __init__(self, x):
-        self.pipe_surface = pygame.image.load('assets/pipe-green.png').convert_alpha()
-        self.top_pipe_surface = pygame.image.load('assets/pipe-green-top.png').convert_alpha()
+    def __init__(self, x, surf, top_surf):
+        self.pipe_surface = surf
+        self.top_pipe_surface = top_surf
         self.gap_y = random.randint(150, 350)
         self.x = x
         self.scored = False
@@ -68,27 +59,44 @@ async def main():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     clock = pygame.time.Clock()
+    
     score_font = pygame.font.SysFont("Impact", 32)
-    restart_font = pygame.font.SysFont("Arial", 18, bold=True)
+    restart_font = pygame.font.SysFont("Arial", 16, bold=True)
+    try:
+        bg_surface = pygame.image.load('assets/background-day.png').convert()
+        base_surface = pygame.image.load('assets/base.png').convert()
+        msg_surface = pygame.image.load('assets/message.png').convert_alpha()
+        over_surface = pygame.image.load('assets/gameover.png').convert_alpha()
+        
+        # Bird Frames
+        bird_frames = [
+            pygame.image.load('assets/Fdown.png').convert_alpha(),
+            pygame.image.load('assets/Fmid.png').convert_alpha(),
+            pygame.image.load('assets/Fup.png').convert_alpha()
+        ]
+        
+        # Pipe Assets
+        p_surf = pygame.image.load('assets/pipe-green.png').convert_alpha()
+        tp_surf = pygame.image.load('assets/pipe-green-top.png').convert_alpha()
+    except Exception as e:
+        print(f"Asset loading error: {e}")
+        # Fallback to avoid crash in cas asset is missing
+        pygame.quit()
+        return
 
-    # Assets
-    bg_surface = pygame.image.load('assets/background-day.png').convert()
-    base_surface = pygame.image.load('assets/base.png').convert()
-    msg_surface = pygame.image.load('assets/message.png').convert_alpha()
-    over_surface = pygame.image.load('assets/gameover.png').convert_alpha()
-    
+    # Game State Variables
     base_x = 0
-    bird = Bird()
+    bird = Bird(bird_frames)
     pipes = []
-    
+    score = 0
+    game_active = False
+    game_over = False
+
+    # Timers
     SPAWNPIPE = pygame.USEREVENT
     pygame.time.set_timer(SPAWNPIPE, 1200)
     BIRDFLAP = pygame.USEREVENT + 1
     pygame.time.set_timer(BIRDFLAP, 100)
-
-    game_active = False
-    game_over = False
-    score = 0
 
     while True:
         for event in pygame.event.get():
@@ -103,48 +111,54 @@ async def main():
                     elif game_active:
                         bird.jump()
                     elif game_over:
-                        # Reset Game
+                        # Full Reset
                         game_active = True
                         game_over = False
                         pipes = []
-                        bird = Bird()
+                        bird = Bird(bird_frames)
                         score = 0
                         base_x = 0
 
             if event.type == SPAWNPIPE and game_active:
-                pipes.append(Pipe(SCREEN_WIDTH + 50))
+                pipes.append(Pipe(SCREEN_WIDTH + 50, p_surf, tp_surf))
 
             if event.type == BIRDFLAP and game_active:
                 bird.animate()
 
-        # DRAWING LOGIC Initial drawing of background (static)
+        # Background
         screen.blit(bg_surface, (0, 0))
 
-        # Move floor and pipes if game is active
+        # Game Logic Updates
         if game_active:
+            # Floor movement
             base_x -= PIPE_SPEED
             if base_x <= -SCREEN_WIDTH:
                 base_x = 0
             
             bird.apply_gravity()
+            
             for pipe in pipes:
                 pipe.update()
-            
-            # Boundary & Collision Check
-            if bird.rect.top <= 0 or bird.rect.bottom >= 450:
-                game_active = False
-                game_over = True
-            for pipe in pipes:
+                
+                # Collision Check
                 if bird.rect.colliderect(pipe.bottom_rect) or bird.rect.colliderect(pipe.top_rect):
                     game_active = False
                     game_over = True
+                
+                # Scoring
                 if not pipe.scored and pipe.x < bird.rect.left:
                     score += 1
                     pipe.scored = True
             
+            # Boundary Check
+            if bird.rect.top <= 0 or bird.rect.bottom >= 450:
+                game_active = False
+                game_over = True
+            
+            # Remove off-screen pipes
             pipes = [p for p in pipes if p.x > -50]
 
-        # Draw pipes and bird
+        # Drawing Objects
         for pipe in pipes:
             pipe.draw(screen)
         
@@ -152,27 +166,29 @@ async def main():
         screen.blit(base_surface, (base_x + SCREEN_WIDTH, 450))
         bird.draw(screen)
 
-        # UI 
+        # UI Layer
         if not game_active and not game_over:
             screen.blit(msg_surface, (SCREEN_WIDTH // 2 - msg_surface.get_width() // 2, 50))
 
         if game_over:
+            # Darken the background
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 150)) # Black with 150/255 transparency
-            screen.blit(overlay, (0,0))
+            overlay.fill((0, 0, 0, 150))
+            screen.blit(overlay, (0, 0))
+            # Game Over visuals
             screen.blit(over_surface, (SCREEN_WIDTH // 2 - over_surface.get_width() // 2, 180))
-            res_score_surf = score_font.render(f"SCORE: {score}", True, (255, 255, 255))
-            screen.blit(res_score_surf, (SCREEN_WIDTH // 2 - res_score_surf.get_width() // 2, 240))
-            restart_surf = restart_font.render("PRESS SPACE OR ENTER TO RESTART", True, (255, 255, 255))
+            score_surf = score_font.render(f"SCORE: {score}", True, (255, 255, 255))
+            screen.blit(score_surf, (SCREEN_WIDTH // 2 - score_surf.get_width() // 2, 240))
+            restart_surf = restart_font.render("PRESS SPACE TO RESTART", True, (255, 255, 255))
             screen.blit(restart_surf, (SCREEN_WIDTH // 2 - restart_surf.get_width() // 2, 320))
-
         else:
+            # Live Score
             score_txt = score_font.render(str(score), True, (255, 255, 255))
             screen.blit(score_txt, (SCREEN_WIDTH // 2 - score_txt.get_width() // 2, 50))
 
         pygame.display.update()
         clock.tick(FPS)
-        await asyncio.sleep(0)
+        await asyncio.sleep(0) # Required for Pygbag
 
 if __name__ == "__main__":
     asyncio.run(main())
